@@ -1,0 +1,25 @@
+### IDE ###
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw*
+*.iml
+
+### Go ###
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+coverage.txt
+coverage_unit.txt
+coverage_integration.txt
+
+# dependencies
+vendor

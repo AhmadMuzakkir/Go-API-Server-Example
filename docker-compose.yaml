@@ -1,0 +1,47 @@
+version: "3.7"
+services:
+  compose-server:
+    image: server
+    build: .
+    networks:
+      - new
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: 12345
+      DB_NAME: go_sample_api_server_structure
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    command:
+      - bash
+      - -c
+      - |
+        ./wait-for-it.sh -t 300 -h database -p 3306 -- echo "running migration" && \
+        /usr/local/bin/migrate -path=/migrations -database="mysql://root:12345@tcp(database:3306)/$${DB_NAME}" -verbose up && \
+        echo "starting server" && \
+        /server
+    depends_on:
+      - compose-mysql
+  compose-mysql:
+    image: mysql:8
+    networks:
+      new:
+        aliases:
+          - database
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - go_sample_api_server_structure_mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345
+      MYSQL_DATABASE: go_sample_api_server_structure
+    ports:
+      - "3306:3306"
+
+volumes:
+  go_sample_api_server_structure_mysql:
+
+networks:
+  new:
