@@ -14,17 +14,23 @@ import (
 	"github.com/ahmadmuzakkir/go-sample-api-server-structure/api"
 	"github.com/ahmadmuzakkir/go-sample-api-server-structure/store"
 	"github.com/ahmadmuzakkir/go-sample-api-server-structure/store/mysql"
+	"github.com/ahmadmuzakkir/go-sample-api-server-structure/version"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/namsral/flag"
 	"golang.org/x/crypto/bcrypt"
 )
+
 var (
-	logger       = log.New(os.Stdout, "", log.LstdFlags|log.LUTC)
+	logger = log.New(os.Stdout, "", log.LstdFlags|log.LUTC)
 )
 
 func main() {
+	fmt.Println("version.BuildTime:\t", version.BuildTime)
+	fmt.Println("version.Commit:\t", version.Commit)
+	fmt.Println("version.Release:\t", version.Release)
+
 	portFlag := flag.Int("port", 8001, "port, default is 8001")
 	dbHostFlag := flag.String("db_host", "127.0.0.1", "Database host, default is 127.0.0.1")
 	dbPortFlag := flag.Int("db_port", 3306, "Database port, default is 3306")

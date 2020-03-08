@@ -43,7 +43,7 @@ The simplest way to start the database is by using the Docker. You can use the p
 [terminal 2] bash scripts/run.migrate.sh -m
 
 # Run the server using default arguments.
-[terminal 2] go run cmd/server/main.go -import_json=icecream.json
+[terminal 2] make run
 ```
 
 ### Run Docker-Compose
@@ -53,7 +53,7 @@ You can also use docker-compose. The server will be compiled and ran on a contai
 One added advantage is that you don't have to install Go.
 
 ```bash
-[terminal 1] docker-compose up --build
+[terminal 1] make run-docker
 ```
 
 ### Notes on running the tests

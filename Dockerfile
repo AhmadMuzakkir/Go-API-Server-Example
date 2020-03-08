@@ -2,7 +2,7 @@ FROM golang:1.13 AS builder
 WORKDIR /server
 COPY . .
 
-RUN go mod vendor && CGO_ENABLED=0 GOFLAGS=-mod=vendor go build ./cmd/server
+RUN make build GOOS=linux GOARCH=amd64
 
 FROM alpine
 

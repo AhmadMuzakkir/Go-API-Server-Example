@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ahmadmuzakkir/go-sample-api-server-structure/store"
+	"github.com/ahmadmuzakkir/go-sample-api-server-structure/version"
 	"github.com/go-chi/chi"
 )
 
@@ -37,21 +38,22 @@ func NewHandler(store store.Store, logger *log.Logger) *Handler {
 	r.Group(func(r chi.Router) {
 		r.Post("/login", h.login)
 		r.Post("/register", h.register)
+		r.Get("/version/", h.version())
 	})
 
 	// Require authentication
 	r.Group(func(r chi.Router) {
 		r.Use(h.authenticate)
 
-		r.Get("/me", h.getMe)
+		r.Get("/me", h.getMe())
 
-		r.Get("/", h.getMessages)
+		r.Get("/", h.getMessages())
 		r.Post("/", h.createMessage)
 
 		r.Route("/{id}", func(r chi.Router) {
 			r.Use(h.authorizeMessage)
 
-			r.Post("/", h.updateFood)
+			r.Post("/", h.updateFood())
 			r.Delete("/", h.deleteFood)
 		})
 	})
@@ -111,21 +113,23 @@ func (h *Handler) createMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int64)
-
-	messages, err := h.store.Message().Get(r.Context(), userID)
-	if err != nil {
-		renderError(w, http.StatusInternalServerError, err.Error())
-	}
-
+func (h *Handler) getMessages() http.HandlerFunc {
 	type response struct {
 		Messages []*store.Message `json:"messages"`
 	}
 
-	render(w, http.StatusOK, response{
-		Messages: messages,
-	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("user_id").(int64)
+
+		messages, err := h.store.Message().Get(r.Context(), userID)
+		if err != nil {
+			renderError(w, http.StatusInternalServerError, err.Error())
+		}
+
+		render(w, http.StatusOK, response{
+			Messages: messages,
+		})
+	}
 }
 
 func (h *Handler) deleteFood(w http.ResponseWriter, r *http.Request) {
@@ -142,48 +146,50 @@ func (h *Handler) deleteFood(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) updateFood(w http.ResponseWriter, r *http.Request) {
-	msg := r.Context().Value("msg").(*store.Message)
-
+func (h *Handler) updateFood() http.HandlerFunc {
 	type request struct {
 		Content    string  `json:"content"`
 		Recipients []int64 `json:"recipients"`
 	}
 
-	var req request
+	return func(w http.ResponseWriter, r *http.Request) {
+		msg := r.Context().Value("msg").(*store.Message)
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		if err == io.EOF {
-			renderError(w, http.StatusBadRequest, "body is empty")
+		var req request
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			if err == io.EOF {
+				renderError(w, http.StatusBadRequest, "body is empty")
+				return
+			}
+
+			renderError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		renderError(w, http.StatusBadRequest, err.Error())
-		return
+		if req.Content == "" {
+			renderError(w, http.StatusBadRequest, "content is empty")
+			return
+		}
+
+		if len(req.Recipients) == 0 {
+			renderError(w, http.StatusBadRequest, "recipients is empty")
+			return
+		}
+
+		msg.Content = req.Content
+		msg.UpdatedDateTime = time.Now()
+
+		if err := h.store.Message().Update(r.Context(), *msg, req.Recipients); err == store.ErrNotFound {
+			renderError(w, http.StatusBadRequest, "invalid message id")
+			return
+		} else if err != nil {
+			renderError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
-
-	if req.Content == "" {
-		renderError(w, http.StatusBadRequest, "content is empty")
-		return
-	}
-
-	if len(req.Recipients) == 0 {
-		renderError(w, http.StatusBadRequest, "recipients is empty")
-		return
-	}
-
-	msg.Content = req.Content
-	msg.UpdatedDateTime = time.Now()
-
-	if err := h.store.Message().Update(r.Context(), *msg, req.Recipients); err == store.ErrNotFound {
-		renderError(w, http.StatusBadRequest, "invalid message id")
-		return
-	} else if err != nil {
-		renderError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) authenticate(next http.Handler) http.Handler {
@@ -253,27 +259,45 @@ func (h *Handler) authorizeMessage(next http.Handler) http.Handler {
 	return http.HandlerFunc(f)
 }
 
-func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int64)
-
-	// At this point, we can assume the user should exist.
-	// So, any error is treated as server error.
-
-	user, err := h.store.User().GetByID(r.Context(), userID)
-	if err != nil {
-		renderError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
+func (h *Handler) getMe() http.HandlerFunc {
 	type response struct {
 		ID       int64  `json:"user_id"`
 		Username string `json:"username"`
 	}
 
-	render(w, http.StatusOK, response{
-		ID:       user.ID,
-		Username: user.Username,
-	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("user_id").(int64)
+
+		// At this point, we can assume the user should exist.
+		// So, any error is treated as server error.
+
+		user, err := h.store.User().GetByID(r.Context(), userID)
+		if err != nil {
+			renderError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		render(w, http.StatusOK, response{
+			ID:       user.ID,
+			Username: user.Username,
+		})
+	}
+}
+
+func (h *Handler) version() http.HandlerFunc {
+	type response struct {
+		BuildTime string `json:"buildTime"`
+		Commit    string `json:"commit"`
+		Release   string `json:"release"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		render(w, http.StatusOK, response{
+			BuildTime: version.BuildTime,
+			Commit:    version.Commit,
+			Release:   version.Release,
+		})
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
