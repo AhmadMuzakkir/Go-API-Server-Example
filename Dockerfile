@@ -2,7 +2,7 @@ FROM golang:1.13 AS builder
 WORKDIR /server
 COPY . .
 
-RUN make build GOOS=linux GOARCH=amd64
+RUN make build
 
 FROM alpine
 
